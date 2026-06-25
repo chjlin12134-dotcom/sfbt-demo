@@ -439,25 +439,48 @@
     startConversation();
   });
 
-  // ── TTS：播放伺服器回傳的 Azure base64 音訊 ──
+  // ── TTS：Azure base64 優先，失敗 fallback 到瀏覽器語音 ──
   const ttsToggle = document.getElementById('ttsOn');
   let currentAudio = null;
 
-  function playAudio(base64, onEnd) {
-    if (!ttsToggle.checked || !base64) { onEnd && onEnd(); return; }
+  // 瀏覽器語音（fallback）
+  function speakFallback(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-TW';
+    utter.rate = 0.95;
+    const voices = window.speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang === 'zh-TW') || voices.find(v => v.lang.startsWith('zh'));
+    if (zhVoice) utter.voice = zhVoice;
+    window.speechSynthesis.speak(utter);
+  }
+  window.speechSynthesis?.getVoices(); // 預載語音列表
+
+  function playAudio(base64, text) {
+    if (!ttsToggle.checked) return;
+    if (!base64) {
+      // Azure 失敗，用瀏覽器語音補上
+      speakFallback(text || '');
+      return;
+    }
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
     const blob = new Blob([bytes], { type: 'audio/mpeg' });
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     currentAudio = audio;
-    audio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd && onEnd(); };
-    audio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd && onEnd(); };
-    audio.play().catch(() => { onEnd && onEnd(); });
+    audio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; };
+    audio.onerror = () => {
+      URL.revokeObjectURL(url); currentAudio = null;
+      speakFallback(text || ''); // Audio 播放失敗也 fallback
+    };
+    audio.play().catch(() => speakFallback(text || ''));
   }
 
   function stopAudio() {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    window.speechSynthesis?.cancel();
   }
 
   // ── STT：跨平台語音輸入 ──
@@ -588,7 +611,7 @@
       if (res.ok) {
         const data = await res.json();
         addBubble('bot', data.content);
-        playAudio(data.audio);
+        playAudio(data.audio, data.content);
         history.push(
           { role: 'user', content: '（開始對話）' },
           { role: 'assistant', content: data.content }
@@ -636,7 +659,7 @@
         history.pop();
       } else {
         addBubble('bot', data.content);
-        playAudio(data.audio);
+        playAudio(data.audio, data.content);
         history.push({ role: 'assistant', content: data.content });
       }
     } catch {
