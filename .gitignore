@@ -1,0 +1,5 @@
+node_modules/
+.env
+crash.log
+server.log
+server.err

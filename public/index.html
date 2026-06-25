@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>與你一起找辦法的AI</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --teal: #3d8a78;
+      --teal-light: #e8f4f1;
+      --teal-bubble: #4a9d8a;
+      --user-bubble: #f0f4ff;
+      --user-bubble-border: #c8d4f0;
+      --bg: #f7f9f8;
+      --text: #2d3a35;
+      --text-light: #6b7f78;
+      --white: #ffffff;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+                   "Microsoft JhengHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--teal);
+      color: var(--white);
+      padding: 16px 20px 14px;
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .header-text h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .header-text p {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+
+    /* ── Chat area ── */
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scroll-behavior: smooth;
+    }
+
+    /* ── Bubbles ── */
+    .msg {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      max-width: 85%;
+      animation: fadeUp 0.25s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.bot  { align-self: flex-start; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--teal-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      color: var(--teal);
+      border: 1.5px solid #c0ddd7;
+    }
+
+    .bubble {
+      padding: 11px 15px;
+      border-radius: 18px;
+      line-height: 1.65;
+      font-size: 15px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.bot  .bubble {
+      background: var(--white);
+      border: 1px solid #dde8e5;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      color: var(--text);
+    }
+    .msg.user .bubble {
+      background: var(--teal);
+      color: var(--white);
+      border-bottom-right-radius: 4px;
+    }
+
+    /* ── Typing indicator ── */
+    .typing .bubble {
+      padding: 14px 18px;
+    }
+    .dots {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .dots span {
+      width: 7px;
+      height: 7px;
+      background: #aac4be;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+      40%            { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* ── Input area ── */
+    .input-wrap {
+      flex-shrink: 0;
+      padding: 12px 16px 16px;
+      background: var(--white);
+      border-top: 1px solid #e0eae7;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    textarea {
+      flex: 1;
+      resize: none;
+      border: 1.5px solid #ccddd9;
+      border-radius: 22px;
+      padding: 10px 16px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      max-height: 140px;
+      line-height: 1.5;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: var(--teal); }
+    textarea::placeholder { color: #a0b4ae; }
+
+    button#send {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: none;
+      background: var(--teal);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button#send:hover  { background: #357a6a; }
+    button#send:active { transform: scale(0.93); }
+    button#send:disabled { background: #a8c4be; cursor: not-allowed; }
+    button#send svg { width: 20px; height: 20px; }
+
+    /* ── Mic button ── */
+    button#mic {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: none;
+      background: #e8f4f1;
+      color: var(--teal);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button#mic:hover  { background: #c8e4de; }
+    button#mic:active { transform: scale(0.93); }
+    button#mic.recording {
+      background: #ff4f4f;
+      color: white;
+      animation: pulse 1s infinite;
+    }
+    button#mic svg { width: 20px; height: 20px; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.08); }
+    }
+
+    /* ── TTS toggle ── */
+    .tts-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-light);
+      padding: 4px 12px 0;
+      background: var(--white);
+    }
+    .tts-toggle input[type=checkbox] { accent-color: var(--teal); }
+
+    /* ── Notice at bottom of page ── */
+    .notice {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-light);
+      padding: 6px 0 4px;
+      flex-shrink: 0;
+      background: var(--white);
+    }
+
+    /* ── Welcome modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(30, 50, 45, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 24px;
+      backdrop-filter: blur(3px);
+    }
+    .modal {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 36px 32px 28px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      text-align: center;
+      animation: modalIn 0.3s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-icon {
+      font-size: 40px;
+      margin-bottom: 16px;
+      line-height: 1;
+    }
+    .modal h2 {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--teal);
+      margin-bottom: 14px;
+      letter-spacing: 0.3px;
+    }
+    .modal p {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.75;
+      margin-bottom: 28px;
+    }
+    .modal-btn {
+      display: inline-block;
+      background: var(--teal);
+      color: var(--white);
+      border: none;
+      border-radius: 50px;
+      padding: 13px 40px;
+      font-size: 16px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.5px;
+    }
+    .modal-btn:hover  { background: #357a6a; }
+    .modal-btn:active { transform: scale(0.96); }
+
+    @media (max-width: 480px) {
+      header { padding: 12px 14px; }
+      .msg { max-width: 92%; }
+      .bubble { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+<!-- Welcome modal -->
+<div class="modal-overlay" id="welcomeModal">
+  <div class="modal">
+    <div class="modal-icon">🌱</div>
+    <h2>歡迎使用「與你一起找辦法的AI」</h2>
+    <p>目前這個網站在測試階段，<br>最長一次對話設定 30 分鐘。<br><br>謝謝你的體驗與耐心。</p>
+    <button class="modal-btn" id="startBtn">開始體驗</button>
+  </div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="header-icon">🌱</div>
+    <div class="header-text">
+      <h1>與你一起找辦法的AI</h1>
+      <p>解決焦點對話．陪你找出可行的作法</p>
+    </div>
+  </header>
+
+  <div id="chat"></div>
+
+  <div class="tts-toggle">
+    <input type="checkbox" id="ttsOn" checked>
+    <label for="ttsOn">🔊 AI 語音回應</label>
+  </div>
+  <div class="input-wrap">
+    <button id="mic" title="按住說話">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="11" rx="3"></rect>
+        <path d="M19 10a7 7 0 0 1-14 0"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </svg>
+    </button>
+    <textarea id="input" rows="1" placeholder="輸入或按麥克風說話…" maxlength="2000"></textarea>
+    <button id="send" title="送出">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+    </button>
+  </div>
+  <div class="notice">你說的內容只用於這次對話，不會被儲存，請安心使用。</div>
+</div>
+
+<script>
+  const chatEl   = document.getElementById('chat');
+  const inputEl  = document.getElementById('input');
+  const sendBtn  = document.getElementById('send');
+
+  // Each browser tab has its own isolated conversation history
+  const history = [];
+
+  function scrollBottom() {
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  function addBubble(role, text) {
+    const isBot = role === 'bot';
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${isBot ? 'bot' : 'user'}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = isBot ? '🌱' : '🙂';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    chatEl.appendChild(wrap);
+    scrollBottom();
+    return bubble;
+  }
+
+  function showTyping() {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg bot typing';
+    wrap.id = 'typing';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = '🌱';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = '<div class="dots"><span></span><span></span><span></span></div>';
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    chatEl.appendChild(wrap);
+    scrollBottom();
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typing');
+    if (el) el.remove();
+  }
+
+  // Auto-resize textarea
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+  });
+
+  // Welcome modal
+  document.getElementById('startBtn').addEventListener('click', () => {
+    const modal = document.getElementById('welcomeModal');
+    modal.style.opacity = '0';
+    modal.style.transition = 'opacity 0.25s ease';
+    setTimeout(() => { modal.remove(); }, 250);
+    startConversation();
+  });
+
+  // ── TTS：播放伺服器回傳的 Azure base64 音訊 ──
+  const ttsToggle = document.getElementById('ttsOn');
+  let currentAudio = null;
+
+  function playAudio(base64, onEnd) {
+    if (!ttsToggle.checked || !base64) { onEnd && onEnd(); return; }
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'audio/mpeg' });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd && onEnd(); };
+    audio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd && onEnd(); };
+    audio.play().catch(() => { onEnd && onEnd(); });
+  }
+
+  function stopAudio() {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  }
+
+  // ── STT：跨平台語音輸入 ──
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const micBtn = document.getElementById('mic');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SR) {
+    micBtn.title = '你的瀏覽器不支援語音輸入';
+    micBtn.style.opacity = '0.4';
+    micBtn.disabled = true;
+  } else {
+    let recognition = null;
+    let isRecording = false;
+    let accumulatedFinal = '';
+    let lastInterim = '';
+    let silenceTimer = null;
+
+    function initRecognition() {
+      const r = new SR();
+      r.lang = 'zh-TW';
+      r.continuous = !isIOS;
+      r.interimResults = true;
+
+      r.onstart = () => {
+        isRecording = true;
+        accumulatedFinal = '';
+        lastInterim = '';
+        micBtn.classList.add('recording');
+        micBtn.title = '錄音中，點擊停止';
+        inputEl.placeholder = '聆聽中…';
+      };
+
+      r.onresult = (e) => {
+        let interim = '', final = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
+        }
+        if (final) accumulatedFinal += final;
+        lastInterim = interim;
+        inputEl.value = accumulatedFinal + interim;
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+
+        // 有 final → 1.2 秒靜默後送出
+        if (final) {
+          clearTimeout(silenceTimer);
+          silenceTimer = setTimeout(() => {
+            if (accumulatedFinal.trim()) {
+              stopRecording();
+              sendMessage();
+            }
+          }, 1200);
+        }
+        // Android：只有 interim（沒有 final），2 秒後強制送出
+        if (interim && !isIOS) {
+          clearTimeout(silenceTimer);
+          silenceTimer = setTimeout(() => {
+            const toSend = (accumulatedFinal + lastInterim).trim();
+            if (toSend) {
+              inputEl.value = toSend;
+              stopRecording();
+              sendMessage();
+            }
+          }, 2000);
+        }
+      };
+
+      // iOS：單次模式說完觸發 onend，flush accumulated
+      r.onend = () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.title = '按麥克風說話';
+        inputEl.placeholder = '輸入或按麥克風說話…';
+        if (isIOS && accumulatedFinal.trim()) {
+          inputEl.value = accumulatedFinal.trim();
+          accumulatedFinal = '';
+          sendMessage();
+        }
+      };
+
+      r.onerror = (e) => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        // no-speech 自動重啟
+        if (e.error === 'no-speech' && !sendBtn.disabled) {
+          setTimeout(startRecording, 200);
+        }
+      };
+
+      return r;
+    }
+
+    function startRecording() {
+      stopAudio(); // 打斷 AI 說話
+      if (!isIOS) recognition = initRecognition();
+      if (!recognition) recognition = initRecognition();
+      try { recognition.start(); } catch(e) {}
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      if (recognition) try { recognition.stop(); } catch(e) {}
+    }
+
+    micBtn.addEventListener('click', () => {
+      if (isRecording) {
+        clearTimeout(silenceTimer);
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    });
+  }
+
+  // ── 對話流程（含 Azure TTS 播放）──
+  async function startConversation() {
+    sendBtn.disabled = true;
+    showTyping();
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: '（開始對話）' }] }),
+      });
+      removeTyping();
+      if (res.ok) {
+        const data = await res.json();
+        addBubble('bot', data.content);
+        playAudio(data.audio);
+        history.push(
+          { role: 'user', content: '（開始對話）' },
+          { role: 'assistant', content: data.content }
+        );
+      } else {
+        const fallback = '嗨，很高興你來！你今天來，帶著什麼期待呢？想要有什麼收穫？';
+        addBubble('bot', fallback);
+      }
+    } catch {
+      removeTyping();
+      addBubble('bot', '嗨，很高興你來！你今天來，帶著什麼期待呢？想要有什麼收穫？');
+    }
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || sendBtn.disabled) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    addBubble('user', text);
+    history.push({ role: 'user', content: text });
+    showTyping();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+      });
+      removeTyping();
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); }
+      catch {
+        addBubble('bot', '伺服器回應有點問題，請重新整理頁面再試試。');
+        history.pop(); sendBtn.disabled = false; inputEl.focus(); return;
+      }
+      if (!res.ok) {
+        addBubble('bot', data.error || '發生了一點問題，可以再試試看嗎？');
+        history.pop();
+      } else {
+        addBubble('bot', data.content);
+        playAudio(data.audio);
+        history.push({ role: 'assistant', content: data.content });
+      }
+    } catch {
+      removeTyping();
+      addBubble('bot', '網路好像有點不穩，可以再試一次嗎？');
+      history.pop();
+    }
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+
+  inputEl.onkeydown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+  sendBtn.onclick = sendMessage;
+</script>
+</body>
+</html>
