@@ -81,12 +81,15 @@ async function azureTts(text) {
     );
     if (res.ok) {
       const buf = await res.arrayBuffer();
+      console.log(`Azure TTS ok, bytes=${buf.byteLength}, text="${text.slice(0,30)}"`);
       return Buffer.from(buf).toString('base64');
     }
     const errText = await res.text();
-    console.error(`Azure TTS error (attempt ${attempt}):`, res.status, errText.slice(0, 200));
+    console.error(`Azure TTS error (attempt ${attempt}): status=${res.status} body=${errText.slice(0, 300)}`);
+    console.error(`Azure TTS ssml snippet: ${ssml.slice(0, 200)}`);
     if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 1000));
   }
+  console.error('Azure TTS failed all attempts, returning null');
   return null;
 }
 
